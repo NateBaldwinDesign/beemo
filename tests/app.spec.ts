@@ -23,6 +23,55 @@ test('face reacts to poke, tickle, keyboard, and recovers', async ({ page }) => 
   expect(errors).toEqual([]);
 });
 
+test('red button shows heart eyes and the exact love bubble, then returns to a smile', async ({ page }, testInfo) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('./');
+  const face = page.locator('#face');
+  const button = page.getByRole('button', { name: 'Pause game, or send love', exact: true });
+  const bubble = page.locator('.speech-bubble');
+  await button.click();
+  await expect(face).toHaveAttribute('data-expression', 'love');
+  await expect(bubble).toBeVisible();
+  await expect(bubble).toHaveText('I love you Azalea');
+  await expect(page.locator('#reaction-status')).toHaveText('I love you Azalea');
+  const hearts = page.locator('.heart-eye');
+  await expect(hearts).toHaveCount(2);
+  for (const heart of await hearts.all()) await expect(heart).toHaveCSS('opacity', '1');
+  await expect(page.locator('.face-hint')).toBeHidden();
+  await page.screenshot({ path: testInfo.outputPath('beemo-love.png') });
+  await expect(face).toHaveAttribute('data-expression', 'idle', { timeout: 5000 });
+  await expect(bubble).toBeHidden();
+  await button.focus();
+  await page.keyboard.press('Enter');
+  await expect(bubble).toBeVisible();
+  await face.click();
+  await expect(face).toHaveAttribute('data-expression', 'ouch');
+  await expect(bubble).toBeHidden();
+});
+
+test('love bubble fits short landscape screens with reduced motion and clears when leaving home', async ({ page }) => {
+  await page.setViewportSize({ width: 568, height: 320 });
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.goto('./');
+  await page.getByRole('button', { name: 'Pause game, or send love', exact: true }).click();
+  const bubble = page.locator('.speech-bubble');
+  await expect(bubble).toBeVisible();
+  const box = (await bubble.boundingBox())!;
+  const screen = (await page.locator('.screen').boundingBox())!;
+  expect(box.x).toBeGreaterThanOrEqual(screen.x);
+  expect(box.y).toBeGreaterThanOrEqual(screen.y);
+  expect(box.x + box.width).toBeLessThanOrEqual(screen.x + screen.width);
+  expect(box.y + box.height).toBeLessThanOrEqual(screen.y + screen.height);
+  await page.getByRole('button', { name: 'Open game', exact: true }).click();
+  await expect(bubble).toBeHidden();
+  await page.getByRole('button', { name: "Let's play", exact: true }).click();
+  await page.getByRole('button', { name: 'Pause game, or send love', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Take a breath.' })).toBeVisible();
+  await expect(bubble).toBeHidden();
+  await page.getByRole('button', { name: 'Pause game, or send love', exact: true }).click();
+  await expect(page.locator('.game-overlay')).toBeHidden();
+});
+
 test('game starts, responds to controls, pauses, and survives home navigation', async ({ page }) => {
   await page.goto('./');
   await page.getByRole('button', { name: 'Open game', exact: true }).click();
@@ -32,7 +81,7 @@ test('game starts, responds to controls, pauses, and survives home navigation', 
   await page.keyboard.press('x');
   await page.keyboard.press('Space');
   await expect(page.locator('#score')).not.toHaveText('0');
-  await page.getByRole('button', { name: 'Pause game, or make a funny face', exact: true }).click();
+  await page.getByRole('button', { name: 'Pause game, or send love', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Take a breath.' })).toBeVisible();
   const score = await page.locator('#score').textContent();
   await page.getByRole('button', { name: 'Return to face', exact: true }).click();

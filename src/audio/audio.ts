@@ -46,6 +46,7 @@ export class RobotAudio {
   }
 
   react(reaction: Reaction) {
+    if (reaction === 'love') return;
     const clip = reaction === 'ouch' ? 'ouch' : reaction === 'laugh' ? 'giggle' : 'hey';
     void this.unlock().then(ready => {
       const context = this.context;

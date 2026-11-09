@@ -1,4 +1,4 @@
-export type Reaction = 'ouch' | 'laugh' | 'shake' | 'hello';
+export type Reaction = 'ouch' | 'laugh' | 'shake' | 'hello' | 'love';
 type Expression = Reaction | 'idle' | 'blink';
 
 interface Shape {
@@ -15,6 +15,7 @@ const SHAPES: Record<Expression, Shape> = {
   laugh: { mouth: [136, 152, 165, 171, 195, 171, 224, 152, 218, 222, 142, 222, 136, 152], eye: 0.23, tilt: 0, tongue: 1 },
   shake: { mouth: [166, 159, 166, 136, 194, 136, 194, 159, 194, 190, 166, 190, 166, 159], eye: 1.35, tilt: 6, tongue: 0.4 },
   hello: { mouth: [131, 146, 162, 162, 198, 162, 229, 146, 221, 193, 139, 193, 131, 146], eye: 1, tilt: 0, tongue: 0.7 },
+  love: { mouth: [139, 148, 166, 162, 194, 162, 221, 148, 215, 199, 145, 199, 139, 148], eye: 1, tilt: 0, tongue: 0.7 },
 };
 
 export function mouthPath(points: number[]): string {
@@ -46,6 +47,7 @@ export class Face {
   private tongue: SVGEllipseElement;
   private eyes: SVGGElement[];
   private group: SVGGElement;
+  private bubble: HTMLParagraphElement;
 
   constructor(
     private host: HTMLElement,
@@ -55,16 +57,18 @@ export class Face {
     host.innerHTML = `<svg viewBox="0 0 360 270" aria-hidden="true">
       <defs><clipPath id="mouth-clip"><path /></clipPath></defs>
       <g class="features">
-        <g class="eye" transform="translate(78 115)"><circle r="10.5"/><path class="eyelid" d="M-15 -8 Q0 -2 15 -8 M-15 8 Q0 2 15 8"/></g>
-        <g class="eye" transform="translate(282 115)"><circle r="10.5"/><path class="eyelid" d="M-15 -8 Q0 -2 15 -8 M-15 8 Q0 2 15 8"/></g>
+        <g class="eye" transform="translate(78 115)"><circle r="10.5"/><path class="eyelid" d="M-15 -8 Q0 -2 15 -8 M-15 8 Q0 2 15 8"/><path class="heart-eye" d="M0 17 C-33 -4 -14 -29 0 -13 C14 -29 33 -4 0 17 Z"/></g>
+        <g class="eye" transform="translate(282 115)"><circle r="10.5"/><path class="eyelid" d="M-15 -8 Q0 -2 15 -8 M-15 8 Q0 2 15 8"/><path class="heart-eye" d="M0 17 C-33 -4 -14 -29 0 -13 C14 -29 33 -4 0 17 Z"/></g>
         <path class="mouth" stroke-width="4" stroke-linejoin="round" />
         <g clip-path="url(#mouth-clip)"><ellipse class="tongue" cx="187" cy="199" rx="30" ry="15"/></g>
       </g>
-    </svg>`;
+    </svg>
+    <p class="speech-bubble" aria-hidden="true" hidden>I love you Azalea</p>`;
     this.mouth = host.querySelector('.mouth')!;
     this.tongue = host.querySelector('.tongue')!;
     this.eyes = [...host.querySelectorAll<SVGGElement>('.eye')];
     this.group = host.querySelector('.features')!;
+    this.bubble = host.querySelector('.speech-bubble')!;
     this.paint();
     this.scheduleBlink();
   }
@@ -82,15 +86,17 @@ export class Face {
     clearTimeout(this.timer);
     clearTimeout(this.blinkTimer);
     this.host.dataset.expression = reaction;
+    this.bubble.hidden = reaction !== 'love';
     this.animate({ ...SHAPES[reaction], tilt: SHAPES[reaction].tilt + side * 4 }, this.reduced.matches ? 35 : 140);
     this.speak(reaction);
-    this.announce({ ouch: 'Ouch!', laugh: 'That tickles!', shake: 'Whoa!', hello: 'Hello, friend!' }[reaction]);
+    this.announce({ ouch: 'Ouch!', laugh: 'That tickles!', shake: 'Whoa!', hello: 'Hello, friend!', love: 'I love you Azalea' }[reaction]);
     this.timer = setTimeout(() => {
       this.current = 'idle';
       this.host.dataset.expression = 'idle';
+      this.bubble.hidden = true;
       this.animate(SHAPES.idle, this.reduced.matches ? 35 : 240);
       this.scheduleBlink();
-    }, reaction === 'laugh' ? 850 : 650);
+    }, reaction === 'love' ? 3000 : reaction === 'laugh' ? 850 : 650);
   }
 
   private animate(target: Shape, duration: number) {
@@ -140,6 +146,7 @@ export class Face {
     this.shape = SHAPES.idle;
     this.current = 'idle';
     this.host.dataset.expression = 'idle';
+    this.bubble.hidden = true;
     this.paint();
   }
 

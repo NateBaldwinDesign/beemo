@@ -20,6 +20,59 @@ describe('expression geometry', () => {
 });
 
 describe('face lifecycle', () => {
+  it('shows two heart eyes and the exact love note for three seconds, then recovers', () => {
+    const host = document.createElement('div');
+    const announce = vi.fn();
+    const face = new Face(host, vi.fn(), announce);
+    const bubble = host.querySelector<HTMLParagraphElement>('.speech-bubble')!;
+    expect(bubble.hidden).toBe(true);
+    face.react('love');
+    expect(face.expression).toBe('love');
+    expect(host.dataset.expression).toBe('love');
+    expect(host.querySelectorAll('.eye .heart-eye')).toHaveLength(2);
+    expect(bubble.hidden).toBe(false);
+    expect(bubble.textContent).toBe('I love you Azalea');
+    expect(announce).toHaveBeenCalledWith('I love you Azalea');
+    vi.advanceTimersByTime(2999);
+    expect(bubble.hidden).toBe(false);
+    vi.advanceTimersByTime(1);
+    expect(face.expression).toBe('idle');
+    expect(bubble.hidden).toBe(true);
+    face.suspend();
+    expect(vi.getTimerCount()).toBe(0);
+  });
+  it('clears the love note on another reaction or suspension without stale recovery timers', () => {
+    const host = document.createElement('div');
+    const face = new Face(host, vi.fn(), vi.fn());
+    const bubble = host.querySelector<HTMLParagraphElement>('.speech-bubble')!;
+    face.react('love');
+    vi.advanceTimersByTime(2000);
+    face.react('love');
+    vi.advanceTimersByTime(2000);
+    expect(face.expression).toBe('love');
+    face.react('ouch');
+    expect(bubble.hidden).toBe(true);
+    face.react('love');
+    face.suspend();
+    expect(bubble.hidden).toBe(true);
+    face.resume();
+    expect(face.expression).toBe('idle');
+    expect(vi.getTimerCount()).toBe(1);
+    face.suspend();
+  });
+  it('keeps the love note readable with reduced motion enabled', () => {
+    reduced = true;
+    const host = document.createElement('div');
+    const face = new Face(host, vi.fn(), vi.fn());
+    face.react('love');
+    vi.advanceTimersByTime(1000);
+    expect(face.expression).toBe('love');
+    expect(host.querySelector<HTMLParagraphElement>('.speech-bubble')!.hidden).toBe(false);
+    vi.advanceTimersByTime(2100);
+    expect(face.expression).toBe('idle');
+    expect(vi.getTimerCount()).toBe(0);
+    face.suspend();
+  });
   it('reacts immediately, prevents shake from starving touch, and recovers', () => {
     const host = document.createElement('div');
     const speak = vi.fn();

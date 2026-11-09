@@ -42,7 +42,7 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
         </div>
         <button class="triangle-button physical" data-control="rotate" aria-label="Rotate piece, or say hello"><span></span></button>
         <button class="green-button physical" data-control="drop" aria-label="Drop piece, or make a happy face"></button>
-        <button class="pink-button physical" data-control="pause" aria-label="Pause game, or make a funny face"></button>
+        <button class="pink-button physical" data-control="pause" aria-label="Pause game, or send love"></button>
         <div class="pill-group">
           <div><button id="home-game" class="pill physical" aria-label="Open game"></button><span id="home-label">PLAY</span></div>
           <div><button id="menu" class="pill physical" aria-label="Open settings and help"></button><span>MENU</span></div>
@@ -60,7 +60,7 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
     <button id="shake" class="text-button full">Try a shake reaction</button>
     <p id="motion-status" class="small">Optional. Your motion data stays on this device.</p>
     <div class="instructions"><h3>A friendly little guide</h3><p>Tap the face to poke. Rub side to side to tickle. Press <strong>PLAY</strong> for Pocket Blocks.</p>
-      <p>In the game: yellow pad moves, cyan triangle rotates, green drops, pink pauses. The first blue pill takes you home.</p>
+      <p>Press the pink/red button on the face screen for heart eyes and a love note. In the game: yellow pad moves, cyan triangle rotates, green drops, pink pauses. The first blue pill takes you home.</p>
       <p>Keyboard: arrows move, <kbd>X</kbd> rotates, <kbd>Space</kbd> drops, <kbd>Esc</kbd> pauses. On the face, <kbd>Enter</kbd> pokes, <kbd>T</kbd> tickles, <kbd>S</kbd> surprises.</p>
     </div>
     <div class="settings-footer"><span>BEST <strong id="best">0</strong></span><span id="offline-status">Preparing offline play…</span></div>
@@ -186,7 +186,7 @@ faceElement.addEventListener('keydown', event => {
 
 function perform(control: string) {
   if (mode === 'home') {
-    face.react(control === 'drop' ? 'hello' : control === 'pause' ? 'shake' : control === 'rotate' ? 'laugh' : 'hello');
+    face.react(control === 'drop' ? 'hello' : control === 'pause' ? 'love' : control === 'rotate' ? 'laugh' : 'hello');
     return;
   }
   void audio.unlock();
