@@ -30,12 +30,14 @@ The app fills the available viewport, with the face above the controls in portra
 | Yellow pad | Friendly reaction | Left/right move; down soft-drops |
 | Cyan triangle | Laugh | Rotate clockwise |
 | Green circle | Smile | Hard drop |
-| Pink circle | Surprise | Pause/resume |
+| Pink/red circle | Heart eyes and an "I love you Azalea" speech bubble | Pause/resume |
 | First blue pill | Open game | Return home, keeping game paused |
 | Second blue pill | Settings/help | Settings/help, pausing game |
 | Small blue button | Mute/unmute | Mute/unmute |
 
 Keyboard: focus the face and use Enter/Space to poke, T to tickle, S to surprise. In the game use left/right/down arrows, X or Up to rotate, Space to hard-drop, and Escape to pause. Tab navigation and standard button activation are supported.
+
+The love note stays visible for three seconds, then the face returns to its usual smile. Another face interaction replaces it immediately. This reaction is visual only, with no spoken audio.
 
 Optional shake input is enabled explicitly in settings, with a permission request where necessary. There is always a **Try a shake reaction** button. Sensor readings stay on the device. Motion permission is session-only. Reduced-motion mode avoids idle blinking and uses short face transitions.
 

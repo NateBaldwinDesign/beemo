@@ -40,6 +40,11 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllGlobals());
 
 describe('robot audio', () => {
+  it('does not substitute an unrelated voice clip for the visual love note', () => {
+    const audio = new RobotAudio(vi.fn());
+    audio.react('love');
+    expect(fetch).not.toHaveBeenCalled();
+  });
   it('unlocks once and caches the three bundled clips under the base path', async () => {
     const audio = new RobotAudio(vi.fn());
     expect(await audio.unlock()).toBe(true);
