@@ -23,43 +23,48 @@ test('face reacts to poke, tickle, keyboard, and recovers', async ({ page }) => 
   expect(errors).toEqual([]);
 });
 
-test('eye taps follow each rendered eye with exact 32px touch targets', async ({ page }, testInfo) => {
-  await page.goto('./');
-  const face = page.locator('#face');
-  for (const [width, height] of [[390, 844], [844, 390], [1440, 900]]) {
-    await page.setViewportSize({ width: width!, height: height! });
-    await page.waitForTimeout(300);
-    for (const index of [0, 1]) {
-      const eye = page.locator('.eye').nth(index);
-      const center = await eye.evaluate(element => {
-        const matrix = (element as SVGGraphicsElement).getScreenCTM()!;
-        return { x: matrix.e, y: matrix.f };
-      });
-      await page.mouse.click(center.x, center.y);
-      await expect(face).toHaveAttribute('data-expression', 'wink');
-      await expect(eye).toHaveAttribute('data-closed', 'true');
-      await expect(page.locator('.eye').nth(index === 0 ? 1 : 0)).toHaveAttribute('data-closed', 'false');
-      if (width === 390 && index === 1) {
-        await page.waitForTimeout(180);
-        await page.screenshot({ path: testInfo.outputPath('eye-wince.png') });
+for (const [width, height] of [[390, 844], [844, 390], [1440, 900]] as const) {
+  test.describe(`eye targets at ${width}x${height}`, () => {
+    test.use({ viewport: { width, height } });
+    test('eye taps follow each rendered eye with exact 32px touch targets', async ({ page }, testInfo) => {
+      await page.clock.install();
+      await page.clock.pauseAt(new Date());
+      await page.goto('./');
+      const face = page.locator('#face');
+      for (const index of [0, 1]) {
+        const eye = page.locator('.eye').nth(index);
+        const center = await eye.evaluate(element => {
+          const matrix = (element as SVGGraphicsElement).getScreenCTM()!;
+          return { x: matrix.e, y: matrix.f };
+        });
+        await page.mouse.click(center.x, center.y);
+        await expect(face).toHaveAttribute('data-expression', 'wink');
+        await page.clock.runFor(160);
+        await expect(eye).toHaveAttribute('data-closed', 'true');
+        await expect(page.locator('.eye').nth(index === 0 ? 1 : 0)).toHaveAttribute('data-closed', 'false');
+        if (width === 390 && index === 1) {
+          await page.screenshot({ path: testInfo.outputPath('eye-wince.png') });
+        }
+        const currentCenter = await eye.evaluate(element => {
+          const matrix = (element as SVGGraphicsElement).getScreenCTM()!;
+          return { x: matrix.e, y: matrix.f };
+        });
+        await page.mouse.click(currentCenter.x + 17, currentCenter.y);
+        await expect(face).toHaveAttribute('data-expression', 'ouch');
+        await page.clock.runFor(650);
+        await expect(face).toHaveAttribute('data-expression', 'idle');
+        await page.clock.runFor(260);
       }
-      await page.waitForTimeout(180);
-      const currentCenter = await eye.evaluate(element => {
-        const matrix = (element as SVGGraphicsElement).getScreenCTM()!;
-        return { x: matrix.e, y: matrix.f };
-      });
-      await page.mouse.click(currentCenter.x + 17, currentCenter.y);
-      await expect(face).toHaveAttribute('data-expression', 'ouch');
-      await expect(face).toHaveAttribute('data-expression', 'idle');
-      await page.waitForTimeout(280);
-    }
-  }
-  await face.focus();
-  await page.keyboard.press('1');
-  await expect(page.locator('.eye').nth(0)).toHaveAttribute('data-closed', 'true');
-  await page.keyboard.press('2');
-  await expect(page.locator('.eye').nth(1)).toHaveAttribute('data-closed', 'true');
-});
+      await face.focus();
+      await page.keyboard.press('1');
+      await page.clock.runFor(160);
+      await expect(page.locator('.eye').nth(0)).toHaveAttribute('data-closed', 'true');
+      await page.keyboard.press('2');
+      await page.clock.runFor(160);
+      await expect(page.locator('.eye').nth(1)).toHaveAttribute('data-closed', 'true');
+    });
+  });
+}
 
 test('quiet-time blinks and yawns do not erase or interrupt user reactions', async ({ page }, testInfo) => {
   await page.clock.install();
