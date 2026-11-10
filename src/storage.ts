@@ -2,10 +2,12 @@ export interface Preferences {
   muted: boolean;
   volume: number;
   best: number;
+  bestStars: number;
+  bestCrossing: number;
 }
 
 const KEY = 'beemo-pocket:v1';
-export const DEFAULTS: Preferences = { muted: false, volume: 0.55, best: 0 };
+export const DEFAULTS: Preferences = { muted: false, volume: 0.55, best: 0, bestStars: 0, bestCrossing: 0 };
 
 export function loadPreferences(storage: Storage, report: (message: string) => void): Preferences {
   try {
@@ -19,7 +21,16 @@ export function loadPreferences(storage: Storage, report: (message: string) => v
       || typeof data.best !== 'number' || !Number.isSafeInteger(data.best) || data.best < 0) {
       throw new Error('Invalid preferences');
     }
-    return { muted: data.muted, volume: data.volume, best: data.best };
+    for (const key of ['bestStars', 'bestCrossing']) {
+      if (data[key] !== undefined && (typeof data[key] !== 'number' || !Number.isSafeInteger(data[key]) || data[key] < 0)) {
+        throw new Error('Invalid arcade best score');
+      }
+    }
+    return {
+      muted: data.muted, volume: data.volume, best: data.best,
+      bestStars: typeof data.bestStars === 'number' ? data.bestStars : 0,
+      bestCrossing: typeof data.bestCrossing === 'number' ? data.bestCrossing : 0,
+    };
   } catch (error) {
     console.warn('Could not read Beemo preferences', error);
     report('Saved settings could not be read. Using the default settings.');

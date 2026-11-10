@@ -20,6 +20,16 @@ describe('shake detection', () => {
     shake.sample(30, 0, 0, 20);
     expect(shake.sample(-30, 0, 0, 1000)).toBe(false);
   });
+  it('reports continuing shaking again after cooldown without flooding callbacks', () => {
+    const detector = new ShakeDetector();
+    const shakes: number[] = [];
+    for (let time = 0; time <= 3600; time += 80) {
+      if (detector.sample((time / 80) % 2 ? 30 : -30, 0, 0, time)) shakes.push(time);
+    }
+    expect(shakes.length).toBeGreaterThanOrEqual(2);
+    expect(shakes[1]! - shakes[0]!).toBeGreaterThanOrEqual(1400);
+    expect(shakes[1]! - shakes[0]!).toBeLessThan(2000);
+  });
 });
 
 describe('motion permissions', () => {

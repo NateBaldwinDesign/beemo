@@ -29,22 +29,48 @@ button:focus-visible, [role="button"]:focus-visible, input:focus-visible { outli
 .eyelid { fill: none; stroke: #071d14; stroke-width: 3; stroke-linecap: round; }
 .mouth { fill: #3b8f5a; stroke: #071d14; }
 .tongue { fill: #72d27c; }
+.teeth { fill: #fffdf0; stroke: #071d14; stroke-width: 2; opacity: 0; }
+.cheeks { fill: none; stroke: #071d14; stroke-width: 3; stroke-linecap: round; opacity: 0; }
+.face[data-expression="dizzy"] .cheeks,
+.face[data-expression="dizzy"] .teeth,
+.face[data-expression="grimace"] .teeth,
+.face[data-expression="delighted"] .teeth { opacity: 1; }
 .face-hint { position: absolute; bottom: 7%; width: 100%; text-align: center; font-size: clamp(8px, 1.6vmin, 11px); letter-spacing: 0.035em; color: #5e927d; pointer-events: none; }
 .screen:has(.face:focus-visible) { outline: 3px dashed #173c35; outline-offset: 5px; }
 .face:focus-visible { outline: none; }
-.game { position: absolute; inset: 0; color: #d3ffe4; background: #173c35; }
+.game { position: absolute; inset: 0; color: #d3ffe4; background: #173c35; container-type: size; }
+.game-stage { position: absolute; inset: 0; margin: auto; width: min(100cqw, calc(100cqh * 4 / 3)); height: min(100cqh, calc(100cqw * 3 / 4)); }
 .game canvas { width: 100%; height: 100%; object-fit: contain; display: block; image-rendering: pixelated; }
-.game-hud { position: absolute; left: 56.5%; top: 8%; font-size: clamp(8px, 1.7vmin, 12px); display: grid; gap: 0.25em; }
+.game-hud { position: absolute; left: 56.5%; top: 8%; width: 40%; font-size: clamp(7px, 3cqh, 12px); display: grid; gap: 0.25em; }
+.game:not([data-kind="blocks"]) .game-hud { left: 70%; width: 28%; }
+.game:not([data-kind="blocks"]) .game-hud .lines { margin-top: 0.5em; }
 .game-hud h1 { margin: 0 0 0.5em; font-size: 1.3em; line-height: 1.2; letter-spacing: 0.02em; }
 .game-hud > span { color: #93bc9e; font-size: 0.8em; }
 .game-hud > strong { font-size: 1.5em; font-weight: 500; }
 .game-hud .lines { margin-top: 6.5em; }
-.game-overlay { position: absolute; inset: 0; display: flex; justify-content: center; align-items: center; flex-direction: column; padding: 6%; text-align: center; background: #15392ff2; gap: 0.6em; }
+.game-overlay { position: absolute; inset: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-content: start; align-content: safe center; justify-items: center; padding: 5%; overflow-y: auto; overscroll-behavior: contain; text-align: center; background: #15392ff2; gap: 6px; }
+.game-overlay > :not(button), .game-overlay .primary, #restart[hidden] + #choose-game { grid-column: 1 / -1; }
+.game-overlay .eyebrow { display: none; }
 .game-overlay h2 { font-size: clamp(20px, 4.7vmin, 42px); margin: 0; letter-spacing: -0.07em; font-weight: 500; color: #d0ffe5; }
 .game-overlay p { font-size: clamp(10px, 2vmin, 14px); margin: 0 0 0.4em; max-width: 28em; line-height: 1.6; }
 .game-overlay .eyebrow { color: #88c4a4; }
 .game-overlay .text-button { color: #d0ffe5; border-color: #659f81; min-height: 44px; padding: 0.6em 1em; }
 .game-overlay .primary { color: #183c31; background: #d0ffe5; }
+.game-overlay .game-controls { font-size: 10px; line-height: 1.4; margin: 0; }
+.arcade-picker { position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: center; padding: 5%; gap: 12px; overflow-y: auto; background: #173c35; color: #d0ffe5; }
+.arcade-picker h1 { margin: 0; font-size: clamp(14px, 3vmin, 24px); font-weight: 500; letter-spacing: -0.05em; }
+.game-choices { display: grid; gap: 8px; }
+.game-choice { display: flex; justify-content: space-between; align-items: center; gap: 8px; width: 100%; min-height: 44px; padding: 9px 12px; text-align: left; background: #245247; border: 1px solid #659f81; border-radius: 6px; color: #d0ffe5; }
+.game-choice[aria-pressed="true"] { border-color: #ffe153; background: #315d4a; }
+.game-choice:focus-visible, .game-overlay button:focus-visible { outline: 2px dashed #ffe153; outline-offset: 2px; }
+.game-choice strong { display: block; font-size: clamp(12px, 2vmin, 16px); font-weight: 500; }
+.game-choice small { display: block; margin-top: 4px; font-size: 8px; color: #9dc8ad; letter-spacing: 0.05em; }
+.choice-best { font-size: 9px; white-space: nowrap; color: #d4dfad; }
+@media (max-height: 420px) and (orientation: landscape) {
+  .arcade-picker { gap: 8px; padding: 4%; }
+  .game-choice { padding: 6px 10px; }
+  .game-choice small { display: none; }
+}
 .text-button { border: 1px solid #55796b; border-radius: 6px; background: transparent; padding: 0.65em 0.9em; min-height: 44px; font-size: 12px; }
 .text-button:hover { background: #8bc6aa33; }
 .full { width: 100%; }

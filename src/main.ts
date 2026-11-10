@@ -2,10 +2,11 @@ import './styles/app.css';
 import { registerSW } from 'virtual:pwa-register';
 import { RobotAudio } from './audio/audio';
 import { Face, type Reaction } from './face/face';
-import { TickleGesture, type HeldDirection } from './input/gestures';
+import { TickleGesture, type HeldControl } from './input/gestures';
 import { MotionInput } from './input/motion';
 import { GameView } from './game/view';
-import type { Game } from './game/rules';
+import { ArcadeView } from './game/arcade-view';
+import { GAMES, type GameId, type GameSummary } from './game/arcade';
 import { DEFAULTS, loadPreferences, savePreferences } from './storage';
 
 document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
@@ -15,14 +16,24 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
         <div class="screen-caption" aria-hidden="true"><span>HELLO, FRIEND</span><span class="signal">• • •</span></div>
         <div id="face" class="face" role="button" tabindex="0" aria-label="Beemo's face. Tap to poke, rub side to side to tickle."></div>
         <div class="face-hint" aria-hidden="true">a little company. a little play.</div>
+        <section id="arcade" class="arcade-picker" hidden aria-labelledby="arcade-title">
+          <h1 id="arcade-title">A tiny arcade</h1>
+          <div class="game-choices">
+            ${(['blocks', 'stars', 'crossing'] as const).map(id => `<button class="game-choice" data-game="${id}" aria-pressed="${id === 'blocks'}"><span><strong>${GAMES[id].title}</strong><small>${id === 'blocks' ? 'STACK & CLEAR' : id === 'stars' ? 'DEFEND THE STARS' : 'ONE MORE HOP'}</small></span><span class="choice-best" data-best="${id}">BEST 0</span></button>`).join('')}
+          </div>
+        </section>
         <section id="game" class="game" hidden tabindex="-1" aria-label="Pocket Blocks falling-block game">
-          <canvas aria-label="Falling-block game board"></canvas>
-          <div class="game-hud"><h1>POCKET<br>BLOCKS</h1><span>SCORE</span><strong id="score">0</strong><span>LEVEL <b id="level">1</b></span><span class="lines">LINES <b id="lines">0</b></span></div>
+          <div class="game-stage">
+            <canvas aria-label="Falling-block game board"></canvas>
+            <div class="game-hud"><h1 id="hud-title">POCKET<br>BLOCKS</h1><span>SCORE</span><strong id="score">0</strong><span><span id="level-label">LEVEL</span> <b id="level">1</b></span><span class="lines"><span id="detail-label">LINES</span> <b id="lines">0</b></span></div>
+          </div>
           <div class="game-overlay">
             <p class="eyebrow">A TINY ARCADE</p><h2 id="game-title">Pocket Blocks</h2>
             <p id="game-message">Find a little order in the falling pieces.</p>
             <button id="game-action" class="text-button primary">Let's play</button>
             <button id="restart" class="text-button" hidden>Start a new game</button>
+            <button id="choose-game" class="text-button">Choose game</button>
+            <p id="game-controls" class="game-controls">Pad: move / soft drop. Triangle: rotate. Green: hard drop.</p>
           </div>
         </section>
       </div>
@@ -59,9 +70,11 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
     <div class="settings-row"><span>Shake to surprise</span><button id="motion" class="text-button">Enable motion</button></div>
     <button id="shake" class="text-button full">Try a shake reaction</button>
     <p id="motion-status" class="small">Optional. Your motion data stays on this device.</p>
-    <div class="instructions"><h3>A friendly little guide</h3><p>Tap the face to poke. Rub side to side to tickle. Press <strong>PLAY</strong> for Pocket Blocks.</p>
-      <p>Press the pink/red button on the face screen for heart eyes and a love note. In the game: yellow pad moves, cyan triangle rotates, green drops, pink pauses. The first blue pill takes you home.</p>
-      <p>Keyboard: arrows move, <kbd>X</kbd> rotates, <kbd>Space</kbd> drops, <kbd>Esc</kbd> pauses. On the face, <kbd>Enter</kbd> pokes, <kbd>T</kbd> tickles, <kbd>S</kbd> surprises.</p>
+    <div class="instructions"><h3>A friendly little guide</h3><p>Tap the face to poke. Rub side to side to tickle. Press <strong>PLAY</strong> to choose Pocket Blocks, Star Patrol, or Pixel Crossing.</p>
+      <p>Press the pink/red button on the face screen for heart eyes and a love note. In Pocket Blocks: yellow pad moves, cyan triangle rotates, green drops, pink pauses. The first blue pill takes you home.</p>
+      <p>Tap an eye to make that eye wince. Shake again soon for a dizzy face. After 30 quiet seconds, Beemo yawns.</p>
+      <p>Keyboard: arrows move, <kbd>X</kbd> rotates, <kbd>Space</kbd> drops, <kbd>Esc</kbd> pauses. On the face, <kbd>Enter</kbd> pokes, <kbd>1</kbd>/<kbd>2</kbd> poke each eye, <kbd>T</kbd> tickles, <kbd>S</kbd> surprises.</p>
+      <p>Star Patrol: left/right to move; hold triangle, green, <kbd>X</kbd>, or <kbd>Space</kbd> to fire. Pixel Crossing: arrows hop; triangle, green, <kbd>X</kbd>, or <kbd>Space</kbd> hop forward. Pink or <kbd>Esc</kbd> pauses every game. Choose game from a paused game to switch without losing your place.</p>
     </div>
     <div class="settings-footer"><span>BEST <strong id="best">0</strong></span><span id="offline-status">Preparing offline play…</span></div>
     <button id="update" class="text-button full" hidden>Update available · restart app</button>
@@ -104,7 +117,11 @@ const settings = element<HTMLDialogElement>('#settings');
 const gameElement = element('#game');
 const overlay = element('.game-overlay');
 const action = element<HTMLButtonElement>('#game-action');
-let mode: 'home' | 'game' = 'home';
+let mode: 'home' | 'arcade' | 'game' = 'home';
+let selectedGame: GameId = 'blocks';
+const gameIds: GameId[] = ['blocks', 'stars', 'crossing'];
+let arcadeSelection = 0;
+const sessions: Partial<Record<GameId, GameView | ArcadeView>> = {};
 let lastAnnouncement = -Infinity;
 const face = new Face(faceElement, reaction => audio.react(reaction), message => {
   if (performance.now() - lastAnnouncement > 500) {
@@ -112,29 +129,37 @@ const face = new Face(faceElement, reaction => audio.react(reaction), message =>
     lastAnnouncement = performance.now();
   }
 });
-let gameView: GameView | undefined;
+let gameView: GameView | ArcadeView | undefined;
 try {
   gameView = new GameView(element<HTMLCanvasElement>('canvas'), updateGame, event => {
     audio.effect(event);
     if (event === 'clear') element('#reaction-status').textContent = 'Nice! Lines cleared.';
   });
+  sessions.blocks = gameView;
 } catch (error) {
   console.error('Game display unavailable', error);
   report('The game display could not start in this browser. You can still play with the face.');
 }
 
-function updateGame(game: Game) {
+function updateBestLabels() {
+  for (const id of gameIds) element(`[data-best="${id}"]`).textContent = `BEST ${preferences[GAMES[id].best]}`;
+  element('#best').textContent = String(preferences[GAMES[selectedGame].best]);
+}
+
+function updateGame(game: GameSummary) {
   element('#score').textContent = String(game.score);
   element('#level').textContent = String(game.level);
-  element('#lines').textContent = String(game.lines);
-  if (game.score > preferences.best) preferences.best = game.score;
+  element('#lines').textContent = String(game.detailValue);
+  element('#detail-label').textContent = game.detailLabel;
+  const bestKey = GAMES[selectedGame].best;
+  if (game.score > preferences[bestKey]) preferences[bestKey] = game.score;
   if (game.phase === 'paused' || game.phase === 'over') save();
-  element('#best').textContent = String(preferences.best);
+  updateBestLabels();
   overlay.hidden = game.phase === 'playing';
-  element('#game-title').textContent = game.phase === 'over' ? 'Nice stacking.' : game.phase === 'paused' ? 'Take a breath.' : 'Pocket Blocks';
+  element('#game-title').textContent = game.phase === 'over' ? selectedGame === 'blocks' ? 'Nice stacking.' : selectedGame === 'stars' ? 'Good patrol.' : 'One more hop?' : game.phase === 'paused' ? 'Take a breath.' : GAMES[selectedGame].title;
   element('#game-message').textContent = game.phase === 'over'
-    ? `You scored ${game.score}. There's always another little game.`
-    : game.phase === 'paused' ? 'Your blocks are right where you left them.' : 'Find a little order in the falling pieces.';
+    ? `You scored ${game.score}. ${game.message || "There's always another little game."}`
+    : game.phase === 'paused' ? selectedGame === 'blocks' ? 'Your blocks are right where you left them.' : 'Your game is right where you left it.' : GAMES[selectedGame].description;
   action.textContent = game.phase === 'paused' ? 'Keep playing' : game.phase === 'over' ? 'Play again' : "Let's play";
   element('#restart').hidden = game.phase !== 'paused';
 }
@@ -145,7 +170,7 @@ function clearInputs() {
   document.querySelectorAll('.pressed').forEach(button => button.classList.remove('pressed'));
 }
 
-function showMode(next: 'home' | 'game') {
+function showMode(next: 'home' | 'arcade' | 'game') {
   if (next === 'game' && !gameView) {
     report('The game needs a browser with Canvas 2D support.');
     return;
@@ -156,13 +181,65 @@ function showMode(next: 'home' | 'game') {
   screen.dataset.mode = mode;
   faceElement.hidden = mode !== 'home';
   gameElement.hidden = mode !== 'game';
+  element('#arcade').hidden = mode !== 'arcade';
   element('.screen-caption').hidden = mode !== 'home';
   element('.face-hint').hidden = mode !== 'home';
   element('#home-game').setAttribute('aria-label', mode === 'home' ? 'Open game' : 'Return to face');
   element('#home-label').textContent = mode === 'home' ? 'PLAY' : 'HOME';
-  if (mode === 'home') { face.resume(); faceElement.focus({ preventScroll: true }); }
-  else { face.suspend(); action.focus({ preventScroll: true }); }
+  if (mode === 'home') {
+    element('[data-control="rotate"]').setAttribute('aria-label', 'Rotate piece, or say hello');
+    element('[data-control="drop"]').setAttribute('aria-label', 'Drop piece, or make a happy face');
+    face.resume();
+    faceElement.focus({ preventScroll: true });
+  }
+  else {
+    face.suspend();
+    if (mode === 'arcade') {
+      updateBestLabels();
+      highlightChoice(gameIds.indexOf(selectedGame));
+    } else {
+      gameView?.refresh();
+      action.focus({ preventScroll: true });
+    }
+  }
 }
+
+function highlightChoice(index: number) {
+  arcadeSelection = (index + gameIds.length) % gameIds.length;
+  for (const [i, id] of gameIds.entries()) element(`[data-game="${id}"]`).setAttribute('aria-pressed', String(i === arcadeSelection));
+  element(`[data-game="${gameIds[arcadeSelection]}"]`).focus({ preventScroll: true });
+}
+
+function selectGame(id: GameId) {
+  clearInputs();
+  gameView?.pause();
+  try {
+    let session = sessions[id];
+    if (!session) {
+      session = id === 'blocks'
+        ? new GameView(element<HTMLCanvasElement>('canvas'), updateGame, event => audio.effect(event))
+        : new ArcadeView(id, element<HTMLCanvasElement>('canvas'), updateGame, event => audio.effect(event));
+      sessions[id] = session;
+    }
+    gameView = session;
+    selectedGame = id;
+    gameElement.dataset.kind = id;
+    gameElement.setAttribute('aria-label', `${GAMES[id].title} game`);
+    element('canvas').setAttribute('aria-label', `${GAMES[id].title} game board`);
+    element('#hud-title').textContent = GAMES[id].title.toUpperCase();
+    element('#level-label').textContent = id === 'stars' ? 'WAVE' : 'LEVEL';
+    element('#game-controls').textContent = GAMES[id].controls;
+    element('[data-control="rotate"]').setAttribute('aria-label', id === 'blocks' ? 'Rotate piece, or say hello' : id === 'stars' ? 'Fire laser' : 'Hop forward');
+    element('[data-control="drop"]').setAttribute('aria-label', id === 'blocks' ? 'Drop piece, or make a happy face' : id === 'stars' ? 'Fire laser with green button' : 'Hop forward with green button');
+    showMode('game');
+  } catch (error) {
+    console.error('Could not open arcade game', error);
+    report('This game could not open. Choose another game or reload to try again.');
+  }
+}
+
+for (const id of gameIds) element(`[data-game="${id}"]`).addEventListener('click', () => selectGame(id));
+element('#choose-game').addEventListener('click', () => showMode('arcade'));
 
 const gestures = new TickleGesture();
 faceElement.addEventListener('pointerdown', event => {
@@ -171,22 +248,34 @@ faceElement.addEventListener('pointerdown', event => {
   gestures.start(event.pointerId, event.clientX, event.timeStamp);
   faceElement.setPointerCapture(event.pointerId);
   const side = (event.clientX - rect.left) / rect.width < 0.4 ? -1 : (event.clientX - rect.left) / rect.width > 0.6 ? 1 : 0;
-  face.react('ouch', side);
+  face.poke(event.clientX, event.clientY, side);
 });
 faceElement.addEventListener('pointermove', event => {
+  if (faceElement.hasPointerCapture(event.pointerId)) face.activity();
   if (gestures.move(event.pointerId, event.clientX, event.timeStamp)) face.react('laugh');
 });
 for (const name of ['pointerup', 'pointercancel', 'lostpointercapture'] as const) {
   faceElement.addEventListener(name, event => gestures.end(event.pointerId));
 }
 faceElement.addEventListener('keydown', event => {
-  const reaction: Reaction | undefined = event.key === 'Enter' || event.key === ' ' ? 'ouch' : event.key.toLowerCase() === 't' ? 'laugh' : event.key.toLowerCase() === 's' ? 'shake' : undefined;
-  if (reaction) { event.preventDefault(); face.react(reaction); }
+  const reaction: Reaction | undefined = event.key === 'Enter' || event.key === ' ' ? 'ouch' : event.key === '1' || event.key === '2' ? 'wink' : event.key.toLowerCase() === 't' ? 'laugh' : event.key.toLowerCase() === 's' ? 'shake' : undefined;
+  if (reaction) { event.preventDefault(); face.react(reaction, event.key === '2' ? 1 : event.key === '1' ? -1 : 0); }
 });
+
+for (const name of ['pointerdown', 'keydown'] as const) {
+  element('.console').addEventListener(name, () => face.activity(), { capture: true });
+}
 
 function perform(control: string) {
   if (mode === 'home') {
     face.react(control === 'drop' ? 'hello' : control === 'pause' ? 'love' : control === 'rotate' ? 'laugh' : 'hello');
+    return;
+  }
+  if (mode === 'arcade') {
+    if (control === 'up' || control === 'left') highlightChoice(arcadeSelection - 1);
+    if (control === 'down' || control === 'right') highlightChoice(arcadeSelection + 1);
+    if (control === 'rotate' || control === 'drop') selectGame(gameIds[arcadeSelection]!);
+    if (control === 'pause') showMode('home');
     return;
   }
   void audio.unlock();
@@ -197,12 +286,14 @@ function perform(control: string) {
 
 for (const button of document.querySelectorAll<HTMLButtonElement>('[data-control]')) {
   const control = button.dataset.control!;
-  const direction = control === 'left' || control === 'right' || control === 'down' ? control : undefined;
+  const direction = control === 'left' || control === 'right' || control === 'down' || control === 'up' ? control : undefined;
+  const heldControl = (): HeldControl | undefined => direction ?? (selectedGame === 'stars' && (control === 'rotate' || control === 'drop') ? 'fire' : undefined);
   button.addEventListener('pointerdown', event => {
     event.preventDefault();
     button.setPointerCapture(event.pointerId);
     button.classList.add('pressed');
-    if (mode === 'game' && direction) gameView?.input.press(`pointer:${event.pointerId}`, direction);
+    const held = heldControl();
+    if (mode === 'game' && held) gameView?.input.press(`pointer:${event.pointerId}`, held);
     else perform(control);
   });
   for (const name of ['pointerup', 'pointercancel', 'lostpointercapture'] as const) {
@@ -214,19 +305,30 @@ for (const button of document.querySelectorAll<HTMLButtonElement>('[data-control
   // Keyboard and assistive-technology activation has no pointer-down event.
   button.addEventListener('click', event => {
     if (event.detail === 0) {
-      if (mode === 'game' && direction) {
-        gameView?.input.press('activation', direction);
+      const held = heldControl();
+      if (mode === 'game' && held) {
+        gameView?.input.press('activation', held);
         gameView?.input.release('activation');
       } else perform(control);
     }
   });
 }
 
-const KEY_DIRECTIONS: Record<string, HeldDirection> = { ArrowLeft: 'left', ArrowRight: 'right', ArrowDown: 'down' };
+const KEY_DIRECTIONS: Record<string, HeldControl> = { ArrowLeft: 'left', ArrowRight: 'right', ArrowDown: 'down' };
 window.addEventListener('keydown', event => {
+  if (mode === 'arcade' && !settings.open) {
+    if (['ArrowLeft', 'ArrowUp', 'ArrowRight', 'ArrowDown'].includes(event.key)) {
+      event.preventDefault();
+      highlightChoice(arcadeSelection + (event.key === 'ArrowLeft' || event.key === 'ArrowUp' ? -1 : 1));
+    }
+    if (event.key === 'Escape') { event.preventDefault(); showMode('home'); }
+    return;
+  }
   if (settings.open || mode !== 'game') return;
-  const direction = KEY_DIRECTIONS[event.key];
+  const fire = selectedGame === 'stars' && [' ', 'x', 'X'].includes(event.key);
+  const direction = selectedGame === 'crossing' && event.key === 'ArrowUp' ? 'up' : fire ? 'fire' : KEY_DIRECTIONS[event.key];
   if (direction) {
+    if (event.key === ' ' && event.target instanceof HTMLButtonElement) return;
     event.preventDefault();
     gameView?.input.press(`key:${event.key}`, direction);
   } else if (['x', 'X', 'ArrowUp', ' ', 'Escape'].includes(event.key)) {
@@ -258,7 +360,7 @@ element('#restart').addEventListener('click', () => {
   gameView?.start();
   gameElement.focus({ preventScroll: true });
 });
-element('#home-game').addEventListener('click', () => { showMode(mode === 'home' ? 'game' : 'home'); });
+element('#home-game').addEventListener('click', () => { showMode(mode === 'home' ? 'arcade' : 'home'); });
 
 function updateSound() {
   const button = element('#sound');
@@ -281,7 +383,7 @@ volume.addEventListener('input', () => {
   audio.volume = preferences.volume = volume.valueAsNumber;
   save();
 });
-element('#best').textContent = String(preferences.best);
+updateBestLabels();
 
 let motionEnabled = false;
 const motion = new MotionInput(() => {

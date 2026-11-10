@@ -1,5 +1,6 @@
 import { cells, Game, HIDDEN, type Kind, type Piece } from './rules';
-import { RepeatInput, type HeldDirection } from '../input/gestures';
+import { RepeatInput, type HeldControl } from '../input/gestures';
+import type { GameSummary } from './arcade';
 
 const COLORS: Record<Kind, string> = {
   I: '#38d6e5', O: '#ffe153', T: '#ba96ec', S: '#48e58a', Z: '#fa7188', J: '#729aff', L: '#ffb762',
@@ -17,7 +18,7 @@ export class GameView {
 
   constructor(
     canvas: HTMLCanvasElement,
-    private status: (game: Game) => void,
+    private status: (game: GameSummary) => void,
     private sound: (event: 'lock' | 'clear' | 'over') => void,
   ) {
     const context = canvas.getContext('2d');
@@ -35,8 +36,10 @@ export class GameView {
   resume() { this.game.resume(); this.changed(); this.run(); }
   rotate() { if (this.game.rotate()) this.changed(); }
   drop() { this.game.drop(); this.changed(); if (this.game.phase !== 'playing') this.stop(); }
+  refresh() { this.lastDraw = ''; this.lastSummary = ''; this.changed(); }
 
-  private move(direction: HeldDirection) {
+  private move(direction: HeldControl) {
+    if (direction === 'up' || direction === 'fire') return;
     if (this.game.move(direction === 'left' ? -1 : direction === 'right' ? 1 : 0, direction === 'down' ? 1 : 0)) this.changed();
   }
 
@@ -70,7 +73,7 @@ export class GameView {
     const summary = `${this.game.phase}:${this.game.score}:${this.game.lines}:${this.game.next}`;
     if (summary !== this.lastSummary) {
       this.lastSummary = summary;
-      this.status(this.game);
+      this.status({ phase: this.game.phase, score: this.game.score, level: this.game.level, detailLabel: 'LINES', detailValue: this.game.lines });
     }
     this.render();
   }

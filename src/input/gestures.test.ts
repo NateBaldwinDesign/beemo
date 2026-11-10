@@ -47,4 +47,19 @@ describe('held controls', () => {
     input.clear(); input.tick(1000);
     expect(perform).toHaveBeenCalledTimes(3);
   });
+  it('uses game-specific repeat timing for firing and upward hops', () => {
+    const perform = vi.fn();
+    const input = new RepeatInput(perform, control => control === 'fire'
+      ? { delay: 100, interval: 100 } : { delay: 180, interval: 180 });
+    input.press('shot', 'fire');
+    input.press('hop', 'up');
+    input.tick(99);
+    expect(perform.mock.calls.map(call => call[0])).toEqual(['fire', 'up']);
+    input.tick(1);
+    input.tick(80);
+    expect(perform.mock.calls.map(call => call[0])).toEqual(['fire', 'up', 'fire', 'up']);
+    input.clear();
+    input.tick(500);
+    expect(perform).toHaveBeenCalledTimes(4);
+  });
 });
