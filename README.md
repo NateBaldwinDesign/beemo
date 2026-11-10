@@ -50,6 +50,8 @@ The love note stays visible for three seconds, followed by a brief closed-eye ha
 
 New expressions reuse the existing short reaction sounds where appropriate. Idle expressions and follow-up variations are silent.
 
+The love note stays visible for three seconds, then the face returns to its usual smile. Another face interaction replaces it immediately. This reaction is visual only, with no spoken audio.
+
 Optional shake input is enabled explicitly in settings, with a permission request where necessary. There is always a **Try a shake reaction** button. Sensor readings stay on the device. Motion permission is session-only. Reduced-motion mode avoids idle blinking and uses short face transitions.
 
 ### Three tiny games
