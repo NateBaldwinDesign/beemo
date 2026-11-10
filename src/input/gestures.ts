@@ -36,15 +36,21 @@ export class TickleGesture {
   clear() { this.points.clear(); }
 }
 
-export type HeldDirection = 'left' | 'right' | 'down';
+export type HeldDirection = 'left' | 'right' | 'down' | 'up';
+export type HeldControl = HeldDirection | 'fire';
 
 export class RepeatInput {
-  private held = new Map<string, { direction: HeldDirection; elapsed: number; next: number }>();
-  constructor(private perform: (direction: HeldDirection) => void) {}
+  private held = new Map<string, { direction: HeldControl; elapsed: number; next: number }>();
+  constructor(
+    private perform: (direction: HeldControl) => void,
+    private timing: (direction: HeldControl) => { delay: number; interval: number } = direction => ({
+      delay: direction === 'down' ? 65 : 180, interval: direction === 'down' ? 65 : 70,
+    }),
+  ) {}
 
-  press(source: string, direction: HeldDirection) {
+  press(source: string, direction: HeldControl) {
     if (this.held.has(source)) return;
-    this.held.set(source, { direction, elapsed: 0, next: direction === 'down' ? 65 : 180 });
+    this.held.set(source, { direction, elapsed: 0, next: this.timing(direction).delay });
     this.perform(direction);
   }
 
@@ -56,7 +62,7 @@ export class RepeatInput {
       item.elapsed += delta;
       while (item.elapsed >= item.next) {
         this.perform(item.direction);
-        item.next += item.direction === 'down' ? 65 : 70;
+        item.next += this.timing(item.direction).interval;
       }
     }
   }
